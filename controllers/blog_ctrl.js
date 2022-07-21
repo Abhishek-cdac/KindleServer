@@ -12,7 +12,7 @@ let blogs = {};
 blogs.add = async (req, res) => {
     try {
 
-        let { title, title_en, category_id, url, date, time, description, description_en, image } = req.body;
+        let { title, title_en, category_id, url, date, time, description, description_en, image, approved } = req.body;
         let { userId } = req.user;
         let fileName = '';
         let slug = await utility.generateSlug(title, blog);
@@ -25,9 +25,9 @@ blogs.add = async (req, res) => {
             url: url,
             date: date,
             time: time,
-            image: fileName,
             description: description,
-            description_en: description_en
+            description_en: description_en,
+	    approved: approved
         }
 
         let result = await blog.create(blogData);
@@ -66,65 +66,79 @@ blogs.add = async (req, res) => {
 
 
 blogs.edit = async (req, res) => {
-    try {
+  try {
+    let {
+      id,
+      title,
+      title_en,
+      category_id,
+      url,
+      date,
+      time,
+      description,
+      description_en,
+      image,
+    } = req.body;
+    let { userId } = req.user;
+    let fileName = "";
+    let blogData = {
+      title: title,
+      title_en: title_en,
+      category_id: category_id,
+      userId: userId,
+      url: url,
+      date: date,
+      time: time,
+      description: description,
+      description_en: description_en,
+    };
 
-        let { id, title, title_en, category_id, url, date, time, description, description_en } = req.body;
-        let { userId } = req.user;
-        let blogData = {
-            title: title,
-            title_en: title_en,
-            category_id: category_id,
-            userId: userId,
-            url: url,
-            date: date,
-            time: time,
-            description: description,
-            description_en: description_en
-        }
+    blog
+      .findOne({
+        where: {
+          id: id,
+        },
+      })
+      .then(async (result) => {
+        result.update(blogData);
+        if (result) {
+          if (image) {
+            fileName = await utility.uploadBase64Image(image);
 
-        if (req.files) {
-            blogData.image = await utility.fileupload(req.files)
-        }
+            let userData = {
+              image: fileName,
+            };
+            result.update(userData);
+          }
 
-
-        blog.findOne({
-            where: {
-                id: id
-            }
-        }).then(async (result) => {
-            if (result) {
-                result.update(blogData)
-                return res.json({
-                    code: Constant.SUCCESS_CODE,
-                    massage: Constant.BLOG_UPDATED_SUCCESS,
-                    data: result
-                })
-
-            } else {
-                return res.json({
-                    code: Constant.ERROR_CODE,
-                    massage: Constant.SOMETHING_WENT_WRONG,
-                    data: result
-                })
-            }
-
-        }).catch(error => {
-            return res.json({
-                code: Constant.ERROR_CODE,
-                massage: Constant.SOMETHING_WENT_WRONG,
-                data: error
-            })
-        })
-    } catch (error) {
-        return res.json({
+          return res.json({
+            code: Constant.SUCCESS_CODE,
+            massage: Constant.BLOG_UPDATED_SUCCESS,
+            data: result,
+          });
+        } else {
+          return res.json({
             code: Constant.ERROR_CODE,
             massage: Constant.SOMETHING_WENT_WRONG,
-            data: error
-        })
-    }
-
-}
-
+            data: result,
+          });
+        }
+      })
+      .catch((error) => {
+        return res.json({
+          code: Constant.ERROR_CODE,
+          massage: Constant.SOMETHING_WENT_WRONG,
+          data: error,
+        });
+      });
+  } catch (error) {
+    return res.json({
+      code: Constant.ERROR_CODE,
+      massage: Constant.SOMETHING_WENT_WRONG,
+      data: error,
+    });
+  }
+};
 
 blogs.delete = async (req, res) => {
     try {
@@ -381,7 +395,7 @@ blogs.getAllBlogs = async (req, res) => {
 
 blogs.getBlogsByUser = async (req, res) => {
     try {
-        let { userId } = req.user;
+        let { userId } = req.body;
         blog.findAll({
             where: {
                 userId: userId,
@@ -689,5 +703,114 @@ blogs.multidelete = async (req, res) => {
     }
 
 }
+
+blogs.getAllApprovedBlogs = async (req, res) => {
+  try {
+    let { search } = req.body;
+    let condition = {
+      status: true,
+      approved: true,
+    };
+    if (search) {
+      condition = {
+        [Op.or]: {
+          title: {
+            [Op.like]: `%${search}%`,
+          },
+          url: {
+            [Op.like]: `%${search}%`,
+          },
+          description: {
+            [Op.like]: `%${search}%`,
+          },
+          "$blog_category.name$": {
+            [Op.like]: `%${search}%`,
+          },
+        },
+      };
+    }
+    blog
+      .findAll({
+        where: condition,
+        include: [
+          {
+            model: blog_category,
+            attributes: [
+              "id",
+              "name",
+              "name_en",
+              "description",
+              "description_en",
+            ],
+            where: {
+              status: true,
+            },
+          },
+        ],
+      })
+      .then((result) => {
+        let massage =
+          result.length > 0
+            ? Constant.BLOG_RETRIEVE_SUCCESS
+            : Constant.NO_DATA_FOUND;
+        return res.json({
+          code: Constant.SUCCESS_CODE,
+          massage: massage,
+          data: result,
+        });
+      })
+      .catch((error) => {
+        return res.json({
+          code: Constant.ERROR_CODE,
+          massage: Constant.SOMETHING_WENT_WRONG,
+          data: error,
+        });
+      });
+  } catch (error) {
+    return res.json({
+      code: Constant.ERROR_CODE,
+      massage: Constant.SOMETHING_WENT_WRONG,
+      data: error,
+    });
+  }
+};
+
+blogs.approvedBlogs = async (req, res) => {
+  try {
+    let { blogId, approved } = req.body;
+    blog
+      .findOne({
+        where: {
+          id: blogId,
+        },
+      })
+      .then((result) => {
+        if (result) {
+          let Data = {
+            approved: approved,
+          };
+          result.update(Data);
+
+          return res.json({
+            code: Constant.SUCCESS_CODE,
+            massage: Constant.BLOG_UPDATED_SUCCESS,
+            data: result,
+          });
+        } else {
+          return res.json({
+            code: Constant.ERROR_CODE,
+            massage: Constant.BLOG_UPDATED_SUCCESS,
+            data: null,
+          });
+        }
+      });
+  } catch (error) {
+    return res.json({
+      code: Constant.ERROR_CODE,
+      massage: Constant.SOMETHING_WENT_WRONG,
+      data: null,
+    });
+  }
+};
 
 module.exports = blogs;

@@ -6,7 +6,7 @@ const blog = require('../controllers/blog_ctrl')
 router.get('/', blog.getAllBlogs);
 router.post('/getBlogBySlug', blog.getBlogBySlug);
 router.post('/getAllBlogsByMonth', blog.getAllBlogsByMonth);
-router.get('/getBlogsByUser', middileware.checkAuthentication, blog.getBlogsByUser);
+router.post('/getBlogsByUser', middileware.checkAuthentication, blog.getBlogsByUser);
 
 
 router.post('/add', middileware.checkAuthentication, blog.add);
@@ -25,7 +25,12 @@ router.delete('/deleteBlogCategory', middileware.checkAuthentication, blog.delet
 router.post('/addBlogComment', blog.addBlogComment);
 
 
-
+router.post(
+  "/approvedBlogs",
+  middileware.checkAuthentication,
+  blog.approvedBlogs
+);
+router.get("/getAllApprovedBlogs", blog.getAllApprovedBlogs);
 
 
 module.exports = router

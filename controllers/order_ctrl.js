@@ -13,6 +13,7 @@ const store = db.store;
 const orderproduct = db.orderproduct;
 const orderdetails = db.orderdetails;
 const moment = require('moment');
+const mailer = require("../lib/mailer");
 let orders = {};
 
 orders.createOrder = async (req,res)=>{
@@ -30,6 +31,15 @@ orders.createOrder = async (req,res)=>{
             object.storeId = payload.storeId?payload.storeId : null;
           });
           let orderproductdata = await orderproduct.bulkCreate(orderDetails);
+
+		
+          let mailOptions = {
+            from: "geeta <geeta.kori@nectarinfotel.com>",
+            to: payload.email,
+            subject: "kindal",
+            html: "<h1>Your order placed successfully<h1>",
+          };
+          await mailer.sendEmail(mailOptions);
 
           order.findOne({
               where : {
@@ -278,7 +288,12 @@ orders.getOrderDetailsById = async (req,res) =>{
         let result = await orderproduct.findAll({
             where:{
                 orderId:Id
-            }
+            },
+include: [
+          {
+            model: book,
+          },
+        ],
         });
         let orderdetailsresult = await orderdetails.findOne({
             where:{

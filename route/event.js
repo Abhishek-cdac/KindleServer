@@ -23,6 +23,12 @@ router.post('/addEventCategory', middileware.checkAuthentication, event.addEvent
 router.put('/editEventCategory', middileware.checkAuthentication, event.editEventCategory);
 router.delete('/deleteEventCategory', middileware.checkAuthentication, event.deleteEventCategory);
 
+router.get("/getAllApprovedEvents", event.getAllApprovedEvents);
+router.post(
+  "/approvedEvents",
+  middileware.checkAuthentication,
+  event.approvedEvents
+);
 
 
 module.exports = router

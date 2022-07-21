@@ -39,9 +39,6 @@ module.exports = (sequelize, Sequelize) => {
         item_condition_en: {
             type: Sequelize.TEXT
         },
-        size: {
-            type: Sequelize.TEXT
-        },
         cover_img: {
             type: Sequelize.TEXT
         },
@@ -62,6 +59,18 @@ module.exports = (sequelize, Sequelize) => {
         },
         max_age: {
             type: Sequelize.INTEGER(11)
+        },
+	synopsis: {
+	    type: Sequelize.TEXT
+	}, 
+	ISBN:{
+	    type: Sequelize.TEXT
+	},
+        pre_sale: {
+            type: Sequelize.STRING,
+        },
+        pre_sale_date: {
+            type: Sequelize.DATE(6),
         },
         approved: {
             type: Sequelize.BOOLEAN,

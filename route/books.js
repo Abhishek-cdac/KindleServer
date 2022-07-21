@@ -11,7 +11,7 @@ router.get('/getAllCategory', book.getAllCategory);
 router.get('/getAllTags', book.getAllTags);
 router.post('/getBookBySlug',book.getBookBySlug);
 
-router.get('/getBooksByUserId',middileware.checkAuthentication, book.getBooksByUserId);
+router.post('/getBooksByUserId',middileware.checkAuthentication, book.getBooksByUserId);
 router.get('/getLatestBooks', book.getLatestBooks);
 
 router.post('/getBooksByCategory', book.getBooksByCategory);
@@ -28,5 +28,12 @@ router.delete('/delete', middileware.checkAuthentication, book.delete);
 router.delete('/multidelete', middileware.checkAuthentication, book.multidelete);
 
 router.post('/addBookComment', middileware.checkAuthentication,book.addBookComment);
+
+router.post(
+  "/approvedBooks",
+  middileware.checkAuthentication,
+  book.approvedBooks
+);
+router.get("/getAllApprovedBooks", book.getAllApprovedBooks);
 
 module.exports = router

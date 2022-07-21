@@ -14,7 +14,7 @@ let events = {};
 
 events.add = async (req, res) => {
     try {
-        let { name, name_en, date, time, description, description_en, category_id, image } = req.body;
+        let { name, name_en, date, time, description, description_en, category_id, image, approved,address } = req.body;
         let { userId } = req.user;
         let fileName = '';
         let slug = await utility.generateSlug(name, event);
@@ -29,7 +29,9 @@ events.add = async (req, res) => {
             description: description,
             description_en: description_en,
             image: fileName,
-            userId: userId
+            userId: userId,
+	    approved: approved,
+	    address: address
 
         }
         let result = await event.create(eventData);
@@ -80,64 +82,81 @@ events.add = async (req, res) => {
 
 
 events.edit = async (req, res) => {
-    try {
-        let { id, name, name_en, date, time, description, description_en, category_id } = req.body;
-        let { userId } = req.user;
-        let fileName = '';
-        if (req.files) {
-            fileName = await utility.fileupload(req.files)
-        }
-        let eventData = {
-            name: name,
-            name_en: name_en,
-            date: date,
-            time: time,
-            description: description,
-            description_en: description_en,
-            image: fileName,
-            userId: userId,
-            category_id: category_id,
+  try {
+    let {
+      id,
+      name,
+      name_en,
+      date,
+      time,
+      description,
+      description_en,
+      category_id,
+      address,
+      image
+    } = req.body;
+    let { userId } = req.user;
+    let fileName = "";
+      let eventData = {
+      name: name,
+      name_en: name_en,
+      date: date,
+      time: time,
+      description: description,
+      description_en: description_en,
+      userId: userId,
+      category_id: category_id,
+      address: address,
+    };
 
-        }
+    event
+      .findOne({
+        where: {
+          id: id,
+        },
+      })
+      .then(async (result) => {
+        if (result) {
+          result.update(eventData);
+	  
+	if (image) {
+                fileName = await utility.uploadBase64Image(image)
 
-        event.findOne({
-            where: {
-                id: id
+                let userData = {
+                    image: fileName
+
+                }
+                result.update(userData)
             }
-        }).then(async (result) => {
-            if (result) {
-                result.update(eventData)
 
-                return res.json({
-                    code: Constant.SUCCESS_CODE,
-                    massage: Constant.EVENT_UPDATED_SUCCESS,
-                    data: result
-                })
-
-            } else {
-                return res.json({
-                    code: Constant.ERROR_CODE,
-                    massage: Constant.SOMETHING_WENT_WRONG,
-                    data: result
-                })
-            }
-
-        }).catch(error => {
-            return res.json({
-                code: Constant.ERROR_CODE,
-                massage: Constant.SOMETHING_WENT_WRONG,
-                data: error
-            })
-        })
-    } catch (error) {
-        return res.json({
+          return res.json({
+            code: Constant.SUCCESS_CODE,
+            massage: Constant.EVENT_UPDATED_SUCCESS,
+            data: result,
+          });
+        } else {
+          return res.json({
             code: Constant.ERROR_CODE,
             massage: Constant.SOMETHING_WENT_WRONG,
-            data: null
-        })
-    }
-}
-
+            data: result,
+          });
+        }
+      })
+      .catch((error) => {
+        return res.json({
+          code: Constant.ERROR_CODE,
+          massage: Constant.SOMETHING_WENT_WRONG,
+          data: error,
+        });
+      });
+  } catch (error) {
+    return res.json({
+      code: Constant.ERROR_CODE,
+      massage: Constant.SOMETHING_WENT_WRONG,
+      data: null,
+    });
+  }
+};
 events.getAllEvents = async (req, res) => {
     try {
         let { search } = req.body;
@@ -230,18 +249,19 @@ events.getEventBySlug = async (req, res) => {
 events.getEventsByUserId = async (req, res) => {
     try {
 
-        let { userId } = req.user;
-        admin.findAll({
+        let { userId } = req.body;
+        event.findAll({
             where: {
-                id: userId
+                userId: userId,
+		status: true,
             },
-            include: [{
-                model: event,
-                where: {
-                    status: true
-                }
-            }]
-        }).then(result => {
+
+        include:[
+          {
+            model: event_category
+          }
+        ],
+         }).then(result => {
             let massage = (result.length > 0) ? Constant.EVENT_RETRIEVE_SUCCESS : Constant.NO_DATA_FOUND
             return res.json({
                 code: Constant.SUCCESS_CODE,
@@ -264,7 +284,6 @@ events.getEventsByUserId = async (req, res) => {
     }
 
 }
-
 events.delete = async (req, res) => {
     try {
 
@@ -367,7 +386,8 @@ events.getEventsByCategoryId = async (req, res) => {
         event.findAll({
             where: {
                 category_id: id,
-                status: true
+                status: true,
+		approved: true
             },
             include: [{
                 model: event_category,
@@ -624,5 +644,108 @@ events.multidelete = async (req, res) => {
     }
 
 }
+
+events.getAllApprovedEvents = async (req, res) => {
+  try {
+    let { search } = req.body;
+    let condition = {
+      status: true,
+      approved: true,
+    };
+    if (search) {
+      condition = {
+        [Op.or]: {
+          name: {
+            [Op.like]: `%${search}%`,
+          },
+          description: {
+            [Op.like]: `%${search}%`,
+          },
+          "$event_category.name$": {
+            [Op.like]: `%${search}%`,
+          },
+        },
+      };
+    }
+    event
+      .findAll({
+        where: condition,
+        include: [
+          {
+            model: event_category,
+            where: {
+              status: true,
+            },
+          },
+          {
+            model: admin,
+          },
+        ],
+      })
+      .then((result) => {
+        let massage =
+          result.length > 0
+            ? Constant.EVENT_RETRIEVE_SUCCESS
+            : Constant.NO_DATA_FOUND;
+
+        return res.json({
+          code: Constant.SUCCESS_CODE,
+          massage: massage,
+          data: result,
+        });
+      })
+      .catch((error) => {
+        return res.json({
+          code: Constant.ERROR_CODE,
+          massage: Constant.SOMETHING_WENT_WRONG,
+          data: null,
+        });
+      });
+  } catch (error) {
+    return res.json({
+      code: Constant.ERROR_CODE,
+      massage: Constant.SOMETHING_WENT_WRONG,
+      data: null,
+    });
+  }
+};
+
+events.approvedEvents = async (req, res) => {
+  try {
+    let { eventId, approved } = req.body;
+    event
+      .findOne({
+        where: {
+          id: eventId,
+        },
+      })
+      .then((result) => {
+        if (result) {
+          let Data = {
+            approved: approved,
+          };
+          result.update(Data);
+
+          return res.json({
+            code: Constant.SUCCESS_CODE,
+            massage: Constant.EVENT_UPDATED_SUCCESS,
+            data: result,
+          });
+        } else {
+          return res.json({
+            code: Constant.ERROR_CODE,
+            massage: Constant.EVENT_UPDATED_SUCCESS,
+            data: null,
+          });
+        }
+      });
+  } catch (error) {
+    return res.json({
+      code: Constant.ERROR_CODE,
+      massage: Constant.SOMETHING_WENT_WRONG,
+      data: null,
+    });
+  }
+};
 
 module.exports = events;
